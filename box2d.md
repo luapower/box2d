@@ -1,6 +1,7 @@
 ---
-project: box2d
-tagline: math for 2D rectangles
+project:     box2d
+tagline:     math for 2D rectangles
+category:    2D Graphics
 ---
 
 v1.0 | Lua 5.1, Lua 5.2, LuaJIT 2
