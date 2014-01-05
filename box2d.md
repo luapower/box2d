@@ -4,8 +4,6 @@ tagline:     math for 2D rectangles
 category:    2D Graphics
 ---
 
-v1.0 | Lua 5.1, Lua 5.2, LuaJIT 2
-
 ## `local box = require'box2d'`
 
 Math for 2D rectangles defined as `(x, y, w, h)`.
