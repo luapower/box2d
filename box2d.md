@@ -1,7 +1,6 @@
 ---
 project:     box2d
 tagline:     math for 2D rectangles
-category:    2D Graphics
 ---
 
 ## `local box = require'box2d'`
