@@ -1,6 +1,6 @@
 ---
-project:     box2d
-tagline:     math for 2D rectangles
+project: box2d
+tagline: rectangle math
 ---
 
 ## `local box = require'box2d'`
