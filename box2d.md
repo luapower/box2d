@@ -49,15 +49,20 @@ Math for 2D rectangles defined as `(x, y, w, h)`.
 
 `box.snap_edges(d, x, y, w, h, rectangles[, opaque])` \              snap the sides of a rectangle against a list
 `-> x, y, w, h`                                                      of rectangles of form `{{x=,y=,w=,h=},...}`.
+																							if `opaque = true`, the rectangles are considered
+																							opaque, in which case they must be sorted
+																							front-to-back.
 
 `box.snap_pos(d, x, y, w, h, rectangles[, opaque])` \                snap the position of a rectangle against a list
 `-> x, y, w, h`                                                      of rectangles.
 
 
-`box.snapped_edges(d, x1, y1, w1, h1, x2, y2, w2,` \                 check if two boxes are snapped and on which edges.
-`h2[, opaque]) -> snapped, left, top, right, bottom`
+`box.snapped_edges(d, x1, y1, w1, h1, x2, y2, w2, h2[, opaque])` \   check if two boxes are snapped and on which edges.
+`-> snapped, left, top, right, bottom`
 
 -------------------------------------------------------------------- -----------------------------------------------------
+
+Note: opaque
 
 ## OOP API
 
