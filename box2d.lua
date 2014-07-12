@@ -1,4 +1,6 @@
---math for 2D rectangles defined as (x, y, w, h). (Cosmin Apreutesei, public domain)
+--math for 2D rectangles defined as (x, y, w, h). (Cosmin Apreutesei, public domain).
+--terminology: a 1D segment is defined as (x1, x2); a side is defined as (x1, x2, y) so it's a segment + an altitude.
+--the corners are (x1, y1, x2, y2), where (x1, y1) is the top-left corner and (x2, y2) is the bottom-right corner.
 
 --representation forms
 
@@ -62,7 +64,7 @@ local function nsplit(i, n, direction, x, y, w, h) --direction = 'v' or 'h'
 	end
 end
 
-local function translate(x0, y0, x, y, w, h)
+local function translate(x0, y0, x, y, w, h) --move a box
 	return x + x0, y + y0, w, h
 end
 
@@ -84,7 +86,7 @@ local function hit(x0, y0, x, y, w, h) --check if a point (x0, y0) is inside rec
 	return x0 >= x and x0 <= x + w and y0 >= y and y0 <= y + h
 end
 
-local function hit_margins(x0, y0, d, x, y, w, h) --hit, left, top, right, bottom
+local function hit_edges(x0, y0, d, x, y, w, h) --returns hit, left, top, right, bottom
 	if hit(x0, y0, offset(d, x, y, 0, 0)) then
 		return true, true, true, false, false
 	elseif hit(x0, y0, offset(d, x + w, y, 0, 0)) then
@@ -105,7 +107,7 @@ local function hit_margins(x0, y0, d, x, y, w, h) --hit, left, top, right, botto
 	return false, false, false, false, false
 end
 
---edge snapping
+--edge snapping / transparent
 
 local function near(x1, x2, d) --two 1D points are closer to one another than d
 	return math.abs(x1 - x2) < d
@@ -119,44 +121,108 @@ local function overlap(ax1, ax2, bx1, bx2) --two 1D segments overlap
 	return not (ax2 < bx1 or bx2 < ax1)
 end
 
-local function offset_seg(x1, x2, d) --offset a 1D segment by d (outward if d is positive)
+local function offset_seg(d, x1, x2) --offset a 1D segment by d (outward if d is positive)
 	return x1 - d, x2 + d
 end
 
---if side A (ax1, ax2, ay) should snap to parallel side B (bx1, bx2, by), then return side B's y
+--if side A (ax1, ax2, ay) should snap to parallel side B (bx1, bx2, by), then return side B's y.
 --to snap, sides should be close enough and overlapping, and side A should be closer to side B than to side C, if any.
 local function snap_side(d, cy, ax1, ax2, ay, bx1, bx2, by)
 	return near(by, ay, d) and (not cy or closer(by, ay, cy)) and
-				overlap(ax1, ax2, offset_seg(bx1, bx2, d)) and by
+				overlap(ax1, ax2, offset_seg(d, bx1, bx2)) and by
 end
 
---snap the sides of a rectangle against an iterator of rectangles.
-local function snap(d, ax1, ay1, ax2, ay2, rectangles)
+--snap the sides of a rectangle against a list of overlapping, transparent rectangles.
+--return the corners of the snapped rectangle.
+local function snap_transparent(d, ax1, ay1, ax2, ay2, rectangles)
 
 	local cx1, cy1, cx2, cy2 --snapped sides
 
-	for x, y, w, h in rectangles do
-		local bx1, by1, bx2, by2 = corners(x, y, w, h)
-
-		cy1 = snap_side(d, cy1, ax1, ax2, ay1, bx1, bx2, by1) or
-				snap_side(d, cy1, ax1, ax2, ay1, bx1, bx2, by2) or cy1
-
-		cy2 = snap_side(d, cy2, ax1, ax2, ay2, bx1, bx2, by1) or
-				snap_side(d, cy2, ax1, ax2, ay2, bx1, bx2, by2) or cy2
-
-		cx1 = snap_side(d, cx1, ay1, ay2, ax1, by1, by2, bx1) or
-				snap_side(d, cx1, ay1, ay2, ax1, by1, by2, bx2) or cx1
-
-		cx2 = snap_side(d, cx2, ay1, ay2, ax2, by1, by2, bx1) or
-				snap_side(d, cx2, ay1, ay2, ax2, by1, by2, bx2) or cx2
+	for i,r in ipairs(rectangles) do
+		local bx1, by1, bx2, by2 = corners(r.x, r.y, r.w, r.h)
+		cy1 = snap_side(d, cy1, ax1, ax2, ay1, bx1, bx2, by1) or cy1
+		cy1 = snap_side(d, cy1, ax1, ax2, ay1, bx1, bx2, by2) or cy1
+		cy2 = snap_side(d, cy2, ax1, ax2, ay2, bx1, bx2, by1) or cy2
+		cy2 = snap_side(d, cy2, ax1, ax2, ay2, bx1, bx2, by2) or cy2
+		cx1 = snap_side(d, cx1, ay1, ay2, ax1, by1, by2, bx1) or cx1
+		cx1 = snap_side(d, cx1, ay1, ay2, ax1, by1, by2, bx2) or cx1
+		cx2 = snap_side(d, cx2, ay1, ay2, ax2, by1, by2, bx1) or cx2
+		cx2 = snap_side(d, cx2, ay1, ay2, ax2, by1, by2, bx2) or cx2
 	end
 
 	return cx1, cy1, cx2, cy2
 end
 
---margin snapping
+--edge snapping / opaque (same algorithm plus edge occlusion check)
 
-local function snap_margins(d, x, y, w, h, rectangles)
+--check if a horizontal side is entirely inside a rectangle.
+--rotate the rectangle 90deg (switch xs with ys) to check for vertical sides.
+local function side_inside_rect(ax1, ax2, ay, bx1, by1, bx2, by2)
+	return ay >= by1 and ay <= by2 and ax1 >= bx1 and ax2 <= bx2
+end
+
+--check if a side is entirely inside at least one rectangle from a limited list of rectangles.
+--in context this means: check if a potential snap side is entirely occluded by any of the rectangles in front of it.
+local function side_inside_rects(ax1, ax2, ay, rectangles, stop_index, vert)
+	if ax1 > ax2 then
+		return true
+	end
+	for i = 1, stop_index do
+		local r = rectangles[i]
+		local x1, y1, x2, y2 = corners(r.x, r.y, r.w, r.h)
+		if vert then
+			y1, x1 = x1, y1
+			y2, x2 = x2, y2
+		end
+		if side_inside_rect(ax1, ax2, ay, x1, y1, x2, y2) then
+			return true
+		end
+	end
+end
+
+local function intersect_segs(ax1, ax2, bx1, bx2) --intersect two 1D segments
+	return math.max(ax1, bx1), math.min(ax2, bx2)
+end
+
+local function snap_opaque_sides(d, cy1, cy2, ax1, ax2, ay1, ay2, bx1, bx2, by1, by2, rectangles, i, vert)
+
+	local cy1_by1 = snap_side(d, cy1, ax1, ax2, ay1, bx1, bx2, by1)
+	local cy1_by2 = snap_side(d, cy1, ax1, ax2, ay1, bx1, bx2, by2)
+	local cy2_by1 = snap_side(d, cy2, ax1, ax2, ay2, bx1, bx2, by1)
+	local cy2_by2 = snap_side(d, cy2, ax1, ax2, ay2, bx1, bx2, by2)
+
+	--the 1D segment of the 2 potential sides to check for occlusion.
+	local dx1, dx2 = intersect_segs(ax1, ax2, offset_seg(d, bx1, bx2))
+
+	if (cy1_by1 or cy2_by1) and not side_inside_rects(dx1, dx2, by1, rectangles, i-1, vert) then
+		cy1 = cy1_by1 or cy1
+		cy2 = cy2_by1 or cy2
+	end
+	if (cy1_by2 or cy2_by2) and not side_inside_rects(dx1, dx2, by2, rectangles, i-1, vert) then
+		cy1 = cy1_by2 or cy1
+		cy2 = cy2_by2 or cy2
+	end
+	return cy1, cy2
+end
+
+--snap the sides of a rectangle against a list of overlapping, opaque rectangles sorted front-to-back.
+local function snap_opaque(d, ax1, ay1, ax2, ay2, rectangles)
+
+	local cx1, cy1, cx2, cy2 --snapped sides
+
+	for i,r in ipairs(rectangles) do
+		local bx1, by1, bx2, by2 = corners(r.x, r.y, r.w, r.h)
+		cy1, cy2 = snap_opaque_sides(d, cy1, cy2, ax1, ax2, ay1, ay2, bx1, bx2, by1, by2, rectangles, i, false)
+		cx1, cx2 = snap_opaque_sides(d, cx1, cx2, ay1, ay2, ax1, ax2, by1, by2, bx1, bx2, rectangles, i, true)
+	end
+
+	return cx1, cy1, cx2, cy2
+end
+
+--edge snapping
+
+local function snap_edges(d, x, y, w, h, rectangles, opaque)
+	local snap = opaque and snap_opaque or snap_transparent
 	local ax1, ay1, ax2, ay2 = corners(x, y, w, h)
 	local cx1, cy1, cx2, cy2 = snap(d, ax1, ay1, ax2, ay2, rectangles)
 	return rect(cx1 or ax1, cy1 or ay1, cx2 or ax2, cy2 or ay2)
@@ -181,7 +247,8 @@ local function snap_seg_pos(ax1, ax2, cx1, cx2)
 	return cx1, cx2
 end
 
-local function snap_pos(d, x, y, w, h, rectangles)
+local function snap_pos(d, x, y, w, h, rectangles, opaque)
+	local snap = opaque and snap_opaque or snap_transparent
 	local ax1, ay1, ax2, ay2 = corners(x, y, w, h)
 	local cx1, cy1, cx2, cy2 = snap(d, ax1, ay1, ax2, ay2, rectangles)
 	cx1, cx2 = snap_seg_pos(ax1, ax2, cx1, cx2)
@@ -191,7 +258,7 @@ end
 
 --snapping info
 
-local function snapped_margins(d, x1, y1, w1, h1, x2, y2, w2, h2)
+local function snapped_edges(d, x1, y1, w1, h1, x2, y2, w2, h2)
 	local ax1, ay1, ax2, ay2 = corners(x1, y1, w1, h1)
 	local bx1, by1, bx2, by2 = corners(x2, y2, w2, h2)
 	local left    = overlap(ay1, ay2, by1, by2) and (near(bx1, ax1, d) or near(bx2, ax1, d))
@@ -211,72 +278,65 @@ local function new(x, y, w, h)
 end
 
 function box:rect()
-	return self.x, self.y, self.w, self.h
+	return r.x, r.y, r.w, r.h
 end
 
 box_mt.__call = box.rect
 
 function box:corners()
-	return corners(self())
+	return corners(r())
 end
 
 function box:align(halign, valign, parent_box)
-	return new(align(self.w, self.h, halign, valign, parent_box()))
+	return new(align(r.w, r.h, halign, valign, parent_box()))
 end
 
 function box:vsplit(i, sh)
-	return new(vsplit(i, sh, self()))
+	return new(vsplit(i, sh, r()))
 end
 
 function box:hsplit(i, sw)
-	return new(hsplit(i, sw, self()))
+	return new(hsplit(i, sw, r()))
 end
 
 function box:nsplit(i, n, direction)
-	return new(nsplit(i, n, direction, self()))
+	return new(nsplit(i, n, direction, r()))
 end
 
 function box:translate(x0, y0)
-	return new(translate(x0, y0, self()))
+	return new(translate(x0, y0, r()))
 end
 
 function box:offset(d) --offset a rectangle by d (outward if d is positive)
-	return new(offset(d, self()))
+	return new(offset(d, r()))
 end
 
 function box:fit(parent_box, halign, valign)
-	local w, h = fit(self.w, self.h, parent_box.w, parent_box.h)
+	local w, h = fit(r.w, r.h, parent_box.w, parent_box.h)
 	local x, y = align(w, h, halign or 'center', valign or 'center', parent_box())
 	return new(x, y, w, h)
 end
 
 function box:hit(x0, y0)
-	return hit(x0, y0, self())
+	return hit(x0, y0, r())
 end
 
-function box:hit_margins(x0, y0, d)
-	return hit_margins(x0, y0, d, self())
+function box:hit_edges(x0, y0, d)
+	return hit_edges(x0, y0, d, r())
 end
 
-local function box_iter(rectangles)
-	return function()
-		local box = rectangles()
-		return box and box()
-	end
-end
-
-function box:snap_margins(d, rectangles)
-	local x, y, w, h = self()
-	return new(snap_margins(d, x, y, w, h, box_iter(rectangles)))
+function box:snap_edges(d, rectangles)
+	local x, y, w, h = r()
+	return new(snap_edges(d, x, y, w, h, rectangles))
 end
 
 function box:snap_pos(d, rectangles)
-	local x, y, w, h = self()
-	return new(snap_pos(d, x, y, w, h, box_iter(rectangles)))
+	local x, y, w, h = r()
+	return new(snap_pos(d, x, y, w, h, rectangles))
 end
 
-function box:snapped_margins(d)
-	return snapped_margins(d, self())
+function box:snapped_edges(d)
+	return snapped_edges(d, r())
 end
 
 
@@ -294,14 +354,14 @@ local box_module = {
 	fit = fit,
 	--hit testing
 	hit = hit,
-	hit_margins = hit_margins,
+	hit_edges = hit_edges,
 	--snapping
-	snap_margins = snap_margins,
+	snap_edges = snap_edges,
 	snap_pos = snap_pos,
-	snapped_margins = snapped_margins,
+	snapped_edges = snapped_edges,
 }
 
-setmetatable(box_module, {__call = function(self, ...) return new(...) end})
+setmetatable(box_module, {__call = function(r, ...) return new(...) end})
 
 
 if not ... then require'cplayer.toolbox_demo' end
