@@ -117,7 +117,7 @@ local function closer(x1, x, x2) --x1 is closer to x than x2 is to x
 	return math.abs(x1 - x) < math.abs(x2 - x)
 end
 
-local function overlap(ax1, ax2, bx1, bx2) --two 1D segments overlap
+local function overlap_seg(ax1, ax2, bx1, bx2) --two 1D segments overlap
 	return not (ax2 < bx1 or bx2 < ax1)
 end
 
@@ -129,7 +129,7 @@ end
 --to snap, sides should be close enough and overlapping, and side A should be closer to side B than to side C, if any.
 local function snap_side(d, cy, ax1, ax2, ay, bx1, bx2, by)
 	return near(by, ay, d) and (not cy or closer(by, ay, cy)) and
-				overlap(ax1, ax2, offset_seg(d, bx1, bx2)) and by
+				overlap_seg(ax1, ax2, offset_seg(d, bx1, bx2)) and by
 end
 
 --snap the sides of a rectangle against a list of overlapping, transparent rectangles.
@@ -261,11 +261,19 @@ end
 local function snapped_edges(d, x1, y1, w1, h1, x2, y2, w2, h2)
 	local ax1, ay1, ax2, ay2 = corners(x1, y1, w1, h1)
 	local bx1, by1, bx2, by2 = corners(x2, y2, w2, h2)
-	local left    = overlap(ay1, ay2, by1, by2) and (near(bx1, ax1, d) or near(bx2, ax1, d))
-	local top     = overlap(ax1, ax2, bx1, bx2) and (near(by1, ay1, d) or near(by2, ay1, d))
-	local right   = overlap(ay1, ay2, by1, by2) and (near(bx1, ax2, d) or near(bx2, ax2, d))
-	local bottom  = overlap(ax1, ax2, bx1, bx2) and (near(by1, ay2, d) or near(by2, ay2, d))
+	local left    = overlap_seg(ay1, ay2, by1, by2) and (near(bx1, ax1, d) or near(bx2, ax1, d))
+	local top     = overlap_seg(ax1, ax2, bx1, bx2) and (near(by1, ay1, d) or near(by2, ay1, d))
+	local right   = overlap_seg(ay1, ay2, by1, by2) and (near(bx1, ax2, d) or near(bx2, ax2, d))
+	local bottom  = overlap_seg(ax1, ax2, bx1, bx2) and (near(by1, ay2, d) or near(by2, ay2, d))
 	return left or top or right or bottom, left, top, right, bottom
+end
+
+--box overlapping test
+
+local function overlapping(x1, y1, w1, h1, x2, y2, w2, h2)
+	return
+		overlap_seg(x1, x1+w1, x2, x2+w2) and
+		overlap_seg(x2, x2+w2, y2, y2+h2)
 end
 
 --box class
@@ -359,6 +367,8 @@ local box_module = {
 	snap_edges = snap_edges,
 	snap_pos = snap_pos,
 	snapped_edges = snapped_edges,
+	--overlapping
+	overlapping = overlapping,
 }
 
 setmetatable(box_module, {__call = function(r, ...) return new(...) end})
