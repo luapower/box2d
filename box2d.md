@@ -62,8 +62,6 @@ Math for 2D rectangles defined as `(x, y, w, h)`.
 
 -------------------------------------------------------------------- -----------------------------------------------------
 
-Note: opaque
-
 ## OOP API
 
 Operations never mutate the object, instead they return a new one.
