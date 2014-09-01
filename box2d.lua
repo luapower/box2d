@@ -276,6 +276,26 @@ local function overlapping(x1, y1, w1, h1, x2, y2, w2, h2)
 		overlap_seg(x2, x2+w2, y2, y2+h2)
 end
 
+--box clipping: clip a box (x1, y1, w, h) to fit inside (0, 0, w0, h0).
+
+local function clip(x1, y1, w, h, x0, y0, w0, h0)
+	assert(x1 and y1 and w and h and x0 and y0 and w0 and h0, 'missing coordinates')
+	local x2 = x1 + w
+	local y2 = y1 + h
+	--clip points
+	x1 = math.min(math.max(x1, x0), x0 + w0)
+	y1 = math.min(math.max(y1, y0), y0 + h0)
+	x2 = math.min(math.max(x2, x0), x0 + w0)
+	y2 = math.min(math.max(y2, y0), y0 + h0)
+	--normalize corners
+	if x2 < x1 then x1, x2 = x2, x1 end
+	if y2 < y1 then y1, y2 = y2, y1 end
+	--get dimensions again
+	w = math.max(x2 - x1, 0)
+	h = math.max(y2 - y1, 0)
+	return x1, y1, w, h
+end
+
 --box class
 
 local box = {}
@@ -286,7 +306,7 @@ local function new(x, y, w, h)
 end
 
 function box:rect()
-	return r.x, r.y, r.w, r.h
+	return self.x, self.y, self.w, self.h
 end
 
 box_mt.__call = box.rect
@@ -347,6 +367,13 @@ function box:snapped_edges(d)
 	return snapped_edges(d, r())
 end
 
+function box:overlapping(box)
+	return overlapping(self.x, self.y, self.w, self.h, box:rect())
+end
+
+function box:clip(box)
+	return new(clip(self.x, self.y, self.w, self.h, box:rect()))
+end
 
 local box_module = {
 	--representation forms
@@ -369,10 +396,11 @@ local box_module = {
 	snapped_edges = snapped_edges,
 	--overlapping
 	overlapping = overlapping,
+	--clipping
+	clip = clip,
 }
 
 setmetatable(box_module, {__call = function(r, ...) return new(...) end})
-
 
 if not ... then require'cplayer.toolbox_demo' end
 

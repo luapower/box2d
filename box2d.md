@@ -60,6 +60,14 @@ Math for 2D rectangles defined as `(x, y, w, h)`.
 `box.snapped_edges(d, x1, y1, w1, h1, x2, y2, w2, h2[, opaque])` \   check if two boxes are snapped and on which edges.
 `-> snapped, left, top, right, bottom`
 
+**overlapping test**
+
+`box.overlapping(x1, y1, w1, h1, x2, y2, w2, h2) -> true | false`		check if two boxes overlap.
+
+**clipping**
+
+`box.clip(x, y, w, h, x0, y0, w0, h0) -> x1, y1, w1, h1`					clip box (x, y, w, h) to fit inside box (x0, y0, w0, h0)
+
 -------------------------------------------------------------------- -----------------------------------------------------
 
 ## OOP API
@@ -82,4 +90,6 @@ Operations never mutate the object, instead they return a new one.
 `box:hit_edges(x0, y0, d) -> hit, left, top, right, bottom`          hit test for edges
 `box:snap_edges(d, boxes) -> box`                                    snap the edges to a list of boxes
 `box:snap_pos(d, boxes) -> box`                                      snap the position
+`box:overlapping(box) -> true | false`											overlapping test
+`box:clip(box) -> box`																clip box to fit inside another box
 -------------------------------------------------------------------- -----------------------------------------------------
