@@ -7,6 +7,8 @@ tagline: rectangle math
 
 Math for 2D rectangles defined as `(x, y, w, h)`.
 
+## API
+
 -------------------------------------------------------------------- -----------------------------------------------------
 **representation forms**
 
@@ -69,6 +71,7 @@ Math for 2D rectangles defined as `(x, y, w, h)`.
 `box.clip(x, y, w, h, x0, y0, w0, h0) -> x1, y1, w1, h1`					clip box (x, y, w, h) to fit inside box (x0, y0, w0, h0)
 
 -------------------------------------------------------------------- -----------------------------------------------------
+
 
 ## OOP API
 
