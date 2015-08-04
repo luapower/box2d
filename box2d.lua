@@ -2,6 +2,10 @@
 --terminology: a 1D segment is defined as (x1, x2); a side is defined as (x1, x2, y) so it's a segment + an altitude.
 --the corners are (x1, y1, x2, y2), where (x1, y1) is the top-left corner and (x2, y2) is the bottom-right corner.
 
+--if not ... then require'cplayer.toolbox_demo' end
+
+local min, max, abs = math.min, math.max, math.abs
+
 --representation forms
 
 local function corners(x, y, w, h)
@@ -10,6 +14,18 @@ end
 
 local function rect(x1, y1, x2, y2)
 	return x1, y1, x2 - x1, y2 - y1
+end
+
+--normalization
+
+local function normalize_seg(x1, x2) --make a 1D vector positive
+	return min(x1, x2), max(x1, x2)
+end
+
+function normalize(x, y, w, h) --make a box have positive size
+	local x1, x2 = normalize_seg(x, x+w)
+	local y1, y2 = normalize_seg(y, y+h)
+	return x1, x2-x1, y1, y2-y1
 end
 
 --layouting
@@ -110,11 +126,11 @@ end
 --edge snapping / transparent
 
 local function near(x1, x2, d) --two 1D points are closer to one another than d
-	return math.abs(x1 - x2) < d
+	return abs(x1 - x2) < d
 end
 
 local function closer(x1, x, x2) --x1 is closer to x than x2 is to x
-	return math.abs(x1 - x) < math.abs(x2 - x)
+	return abs(x1 - x) < abs(x2 - x)
 end
 
 local function overlap_seg(ax1, ax2, bx1, bx2) --two 1D segments overlap
@@ -180,8 +196,9 @@ local function side_inside_rects(ax1, ax2, ay, rectangles, stop_index, vert)
 	end
 end
 
-local function intersect_segs(ax1, ax2, bx1, bx2) --intersect two 1D segments
-	return math.max(ax1, bx1), math.min(ax2, bx2)
+--intersect two positive 1D segments
+local function intersect_segs(ax1, ax2, bx1, bx2)
+	return max(ax1, bx1), min(ax2, bx2)
 end
 
 local function snap_opaque_sides(d, cy1, cy2, ax1, ax2, ay1, ay2, bx1, bx2, by1, by2, rectangles, i, vert)
@@ -232,7 +249,7 @@ end
 
 local function snap_seg_pos(ax1, ax2, cx1, cx2)
 	if cx1 and cx2 then
-		if math.abs(cx1 - ax1) < math.abs(cx2 - ax2) then --move to whichever point is closer
+		if abs(cx1 - ax1) < abs(cx2 - ax2) then --move to whichever point is closer
 			cx2 = cx1 + (ax2 - ax1) --move to cx1
 		else
 			cx1 = cx2 - (ax2 - ax1) --move to cx2
@@ -273,30 +290,22 @@ end
 local function overlapping(x1, y1, w1, h1, x2, y2, w2, h2)
 	return
 		overlap_seg(x1, x1+w1, x2, x2+w2) and
-		overlap_seg(x2, x2+w2, y2, y2+h2)
+		overlap_seg(y1, y1+h1, y2, y2+h2)
 end
 
---box clipping: clip a box (x1, y1, w, h) to fit inside (0, 0, w0, h0).
+--box intersection
 
-local function clip(x1, y1, w, h, x0, y0, w0, h0)
-	assert(x1 and y1 and w and h and x0 and y0 and w0 and h0, 'missing coordinates')
-	local x2 = x1 + w
-	local y2 = y1 + h
-	--clip points
-	x1 = math.min(math.max(x1, x0), x0 + w0)
-	y1 = math.min(math.max(y1, y0), y0 + h0)
-	x2 = math.min(math.max(x2, x0), x0 + w0)
-	y2 = math.min(math.max(y2, y0), y0 + h0)
-	--normalize corners
-	if x2 < x1 then x1, x2 = x2, x1 end
-	if y2 < y1 then y1, y2 = y2, y1 end
-	--get dimensions again
-	w = math.max(x2 - x1, 0)
-	h = math.max(y2 - y1, 0)
+local function clip(x1, y1, w1, h1, x2, y2, w2, h2)
+	--intersect on each dimension
+	local x1, x2 = intersect_segs(x1, x1+w1, x2, x2+w2)
+	local y1, y2 = intersect_segs(y1, y1+h1, y2, y2+h2)
+	--clamp size
+	local w = max(x2-x1, 0)
+	local h = max(y2-y1, 0)
 	return x1, y1, w, h
 end
 
---box class
+--box class ------------------------------------------------------------------
 
 local box = {}
 local box_mt = {__index = box}
@@ -379,6 +388,8 @@ local box_module = {
 	--representation forms
 	corners = corners,
 	rect = rect,
+	--normalization
+	normalize = normalize,
 	--layouting
 	align = align,
 	vsplit = vsplit,
@@ -401,8 +412,5 @@ local box_module = {
 }
 
 setmetatable(box_module, {__call = function(r, ...) return new(...) end})
-
-if not ... then require'cplayer.toolbox_demo' end
-
 
 return box_module

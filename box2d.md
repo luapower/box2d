@@ -5,7 +5,7 @@ tagline: rectangle math
 
 ## `local box = require'box2d'`
 
-Math for 2D rectangles defined as `(x, y, w, h)`.
+Math for 2D rectangles defined as `(x, y, w, h)` where w > 0 and h > 0.
 
 ## API
 
@@ -15,6 +15,10 @@ Math for 2D rectangles defined as `(x, y, w, h)`.
 `box.corners(x, y, w, h) -> x1, y1, x2, y2`                          left,top and right,bottom corners
 
 `box.rect(x1, y1, x2, y2) -> x, y, w, h`                             box given left,top and right,bottom corners
+
+**normalization**
+
+`box.normalize(x, y, w, h) -> x, y, w, h`                            return the same box with positive width and height
 
 **layouting**
 
@@ -68,7 +72,7 @@ Math for 2D rectangles defined as `(x, y, w, h)`.
 
 **clipping**
 
-`box.clip(x, y, w, h, x0, y0, w0, h0) -> x1, y1, w1, h1`					clip box (x, y, w, h) to fit inside box (x0, y0, w0, h0)
+`box.clip(x, y, w, h, x0, y0, w0, h0) -> x1, y1, w1, h1`					intersect two normalized boxes
 
 -------------------------------------------------------------------- -----------------------------------------------------
 
