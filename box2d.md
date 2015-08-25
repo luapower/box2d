@@ -1,5 +1,4 @@
 ---
-project: box2d
 tagline: rectangle math
 ---
 
